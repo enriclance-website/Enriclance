@@ -19,6 +19,10 @@ const BOTTLE_HERO_URL = 'https://i.pinimg.com/736x/17/11/fb/1711fb6ae471b1d57f73
 // Set VITE_RAZORPAY_KEY in your Vercel environment variables
 const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY ?? 'rzp_test_YOUR_KEY_HERE';
 
+const EMAILJS_SERVICE_ID = 'service_z3arxgv';
+const EMAILJS_TEMPLATE_ID = 'template_15kn4u7';
+const EMAILJS_PUBLIC_KEY = 'vjoDOdWgZ_1c9Mvov';
+
 const INGREDIENTS = [
   {
     name: 'Amla (Indian Gooseberry)',
@@ -104,8 +108,8 @@ export default function App() {
       .join('\n');
 
     emailjs.send(
-      import.meta.env.VITE_EMAILJS_SERVICE_ID,
-      import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_ID,
       {
         customer_name: form.name,
         customer_email: form.email,
@@ -115,7 +119,7 @@ export default function App() {
         delivery_address: `${form.address}, ${form.city} – ${form.pincode}`,
         order_id: paymentId,
       },
-      import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+      EMAILJS_PUBLIC_KEY
     );
   };
 
