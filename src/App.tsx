@@ -1,3 +1,4 @@
+import emailjs from '@emailjs/browser';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShoppingCart, Menu, X,
@@ -91,6 +92,33 @@ export default function App() {
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
 
+  const sendConfirmationEmail = (
+    form: CheckoutFormData,
+    items: CartItem[],
+    total: number,
+    paymentMethod: 'online' | 'cod',
+    paymentId: string
+  ) => {
+    const orderItems = items
+      .map(i => `${i.name} (${i.volume}) × ${i.quantity} — ₹${(getPriceNum(i.price) * i.quantity).toLocaleString()}`)
+      .join('\n');
+
+    emailjs.send(
+      import.meta.env.VITE_EMAILJS_SERVICE_ID,
+      import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+      {
+        customer_name: form.name,
+        customer_email: form.email,
+        order_items: orderItems,
+        order_total: `₹${total.toLocaleString('en-IN')}`,
+        payment_method: paymentMethod === 'cod' ? 'Cash on Delivery' : `Online Payment (ID: ${paymentId})`,
+        delivery_address: `${form.address}, ${form.city} – ${form.pincode}`,
+        order_id: paymentId,
+      },
+      import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+    );
+  };
+
   const navigate = (page: Page) => {
     setCurrentPage(page);
     setIsMenuOpen(false);
@@ -165,6 +193,7 @@ export default function App() {
         paymentMethod: 'cod',
         form: { ...checkoutForm },
       });
+      sendConfirmationEmail(checkoutForm, cartItems, total, 'cod', 'COD');
       setCartItems([]);
       navigate('thankyou');
       return;
@@ -190,6 +219,7 @@ export default function App() {
           paymentMethod: 'online',
           form: { ...checkoutForm },
         });
+        sendConfirmationEmail(checkoutForm, cartItems, total, 'online', response.razorpay_payment_id);
         setCartItems([]);
         navigate('thankyou');
       },
