@@ -83,9 +83,6 @@ export default function App() {
   const [orderDetails, setOrderDetails] = useState<{
     items: CartItem[];
     total: number;
-    cgst: number;
-    sgst: number;
-    grandTotal: number;
     paymentId: string;
     form: CheckoutFormData;
   } | null>(null);
@@ -119,9 +116,7 @@ export default function App() {
   const getTotal = () =>
     cartItems.reduce((sum, item) => sum + getPriceNum(item.price) * item.quantity, 0);
 
-  const getCGST = () => Math.round(getTotal() * 0.09);
-  const getSGST = () => Math.round(getTotal() * 0.09);
-  const getGrandTotal = () => getTotal() + getCGST() + getSGST();
+  const getGrandTotal = () => getTotal();
 
   const fmtCur = (inr: number) => {
     const c = CURRENCIES[currency];
@@ -164,8 +159,6 @@ export default function App() {
       return;
     }
 
-    const cgst = getCGST();
-    const sgst = getSGST();
     const grandTotal = getGrandTotal();
 
     const options = {
@@ -179,9 +172,6 @@ export default function App() {
         setOrderDetails({
           items: [...cartItems],
           total,
-          cgst,
-          sgst,
-          grandTotal,
           paymentId: response.razorpay_payment_id,
           form: { ...checkoutForm },
         });
@@ -212,7 +202,7 @@ export default function App() {
       name: 'Enriclance Adivasi Hair Oil',
       volume: '250 ml',
       price: '₹799',
-      shippingNote: 'including shipping',
+      shippingNote: 'incl. GST',
       originalPrice: '₹999',
       discount: '20%',
       image: 'https://lh3.googleusercontent.com/d/1u2Jf9BlTgUeY_UZ0rQU5Nk6CQwfvia0R=w500',
@@ -228,7 +218,7 @@ export default function App() {
       name: 'Enriclance Adivasi Hair Oil',
       volume: '500 ml',
       price: '₹1399',
-      shippingNote: 'including shipping',
+      shippingNote: 'incl. GST',
       originalPrice: '₹1799',
       discount: '22%',
       image: 'https://lh3.googleusercontent.com/d/1u2Jf9BlTgUeY_UZ0rQU5Nk6CQwfvia0R=w500',
@@ -1332,12 +1322,9 @@ export default function App() {
                         </div>
                       ))}
                       <div className="mt-4 space-y-2 pt-2">
-                        <div className="flex justify-between text-sm text-white/55"><span>Subtotal</span><span>₹{getTotal().toLocaleString('en-IN')}</span></div>
-                        <div className="flex justify-between text-sm text-white/55"><span>CGST (9%)</span><span>₹{getCGST().toLocaleString('en-IN')}</span></div>
-                        <div className="flex justify-between text-sm text-white/55"><span>SGST (9%)</span><span>₹{getSGST().toLocaleString('en-IN')}</span></div>
-                        <div className="flex justify-between text-sm text-white/55"><span>Shipping</span><span className="text-emerald-400 font-medium">Free</span></div>
+                        <div className="flex justify-between text-sm text-white/55"><span>Shipping</span><span className="text-white/55 font-medium">Calculated at checkout</span></div>
                         <div className="flex justify-between text-base font-bold text-white pt-3 border-t border-white/15">
-                          <span>Total (incl. 18% GST)</span>
+                          <span>Total (incl. GST)</span>
                           <span className="text-brand-gold text-xl">₹{getGrandTotal().toLocaleString('en-IN')}</span>
                         </div>
                       </div>
@@ -1349,7 +1336,7 @@ export default function App() {
                         Proceed to Checkout <ChevronRight size={16} />
                       </motion.button>
                       <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-white/30 uppercase tracking-widest">
-                        <Lock size={10} /> Secure Checkout · Free Shipping
+                        <Lock size={10} /> Secure Checkout · Shipping calculated at checkout
                       </div>
                     </div>
                   </div>
@@ -1484,11 +1471,9 @@ export default function App() {
                     ))}
                     <div className="mt-4 space-y-2 pt-2">
                       <div className="flex justify-between text-sm text-white/55"><span>Subtotal</span><span>{fmtCur(getTotal())}</span></div>
-                      <div className="flex justify-between text-sm text-white/55"><span>CGST (9%)</span><span>{fmtCur(getCGST())}</span></div>
-                      <div className="flex justify-between text-sm text-white/55"><span>SGST (9%)</span><span>{fmtCur(getSGST())}</span></div>
-                      <div className="flex justify-between text-sm text-white/55"><span>Shipping</span><span className="text-emerald-400 font-medium">Free</span></div>
+                      <div className="flex justify-between text-sm text-white/55"><span>Shipping</span><span className="text-white/55 font-medium">Based on location</span></div>
                       <div className="flex justify-between text-base font-bold text-white pt-3 border-t border-white/15">
-                        <span>Total (incl. 18% GST)</span>
+                        <span>Total (incl. GST)</span>
                         <span className="text-brand-gold text-lg">{fmtCur(getGrandTotal())}</span>
                       </div>
                     </div>
@@ -1496,7 +1481,7 @@ export default function App() {
                     <div className="mt-5 space-y-2">
                       {[
                         { icon: Shield, text: 'Secure Payment via Razorpay' },
-                        { icon: Truck, text: 'Free Shipping Across India' },
+                        { icon: Truck, text: 'Shipping calculated at checkout' },
                         { icon: Package, text: 'Carefully Packed & Delivered' },
                       ].map(({ icon: Icon, text }) => (
                         <div key={text} className="flex items-center gap-2 text-xs text-white/40">
@@ -1578,25 +1563,9 @@ export default function App() {
                   </div>
 
                   <div className="border-t border-brand-leaf/8 pt-4 space-y-2">
-                    <div className="flex justify-between text-sm text-brand-bark/60">
-                      <span>Subtotal</span>
-                      <span>₹{orderDetails.total.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-brand-bark/60">
-                      <span>CGST (9%)</span>
-                      <span>₹{orderDetails.cgst.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-brand-bark/60">
-                      <span>SGST (9%)</span>
-                      <span>₹{orderDetails.sgst.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-brand-bark/60">
-                      <span>Shipping</span>
-                      <span className="text-green-600 font-medium">Free</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-brand-bark text-base pt-2 border-t border-brand-leaf/8">
-                      <span>Total Paid (incl. 18% GST)</span>
-                      <span className="text-brand-leaf text-xl">₹{orderDetails.grandTotal.toLocaleString('en-IN')}</span>
+                    <div className="flex justify-between font-bold text-brand-bark text-base pt-2">
+                      <span>Total Paid (incl. GST)</span>
+                      <span className="text-brand-leaf text-xl">₹{orderDetails.total.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
 
@@ -1658,8 +1627,8 @@ export default function App() {
               <div>
                 <p className="text-xs text-brand-bark/40 mt-4">
                   Questions? Contact us at{' '}
-                  <a href="mailto:ashirvadenterprises1972@gmail.com" className="text-brand-leaf hover:underline">
-                    ashirvadenterprises1972@gmail.com
+                  <a href="mailto:enriclanceoil@gmail.com" className="text-brand-leaf hover:underline">
+                    enriclanceoil@gmail.com
                   </a>
                 </p>
               </div>
@@ -1791,10 +1760,10 @@ export default function App() {
                       <p className="text-sm text-white/55 group-hover:text-white/80 transition-colors">+91 8431838491</p>
                     </div>
                   </a>
-                  <a href="mailto:ashirvadenterprises1972@gmail.com" className="flex gap-3 items-start group">
+                  <a href="mailto:enriclanceoil@gmail.com" className="flex gap-3 items-start group">
                     <Mail size={14} className="text-brand-gold mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-white/55 group-hover:text-white/80 transition-colors break-all">
-                      ashirvadenterprises1972@gmail.com
+                      enriclanceoil@gmail.com
                     </p>
                   </a>
                   <div className="flex gap-3 items-start">
