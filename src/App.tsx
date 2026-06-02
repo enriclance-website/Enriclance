@@ -84,10 +84,12 @@ export default function App() {
     items: CartItem[];
     total: number;
     paymentId: string;
+    paymentMethod: 'online' | 'cod';
     form: CheckoutFormData;
   } | null>(null);
   const [currency, setCurrency] = useState<'INR' | 'USD' | 'EUR' | 'GBP'>('INR');
   const [activeTimeline, setActiveTimeline] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
 
   const navigate = (page: Page) => {
     setCurrentPage(page);
@@ -153,13 +155,25 @@ export default function App() {
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const total = getTotal();
+    const grandTotal = getGrandTotal();
+
+    if (paymentMethod === 'cod') {
+      setOrderDetails({
+        items: [...cartItems],
+        total,
+        paymentId: 'COD',
+        paymentMethod: 'cod',
+        form: { ...checkoutForm },
+      });
+      setCartItems([]);
+      navigate('thankyou');
+      return;
+    }
 
     if (!window.Razorpay) {
       alert('Payment gateway is loading. Please wait a moment and try again.');
       return;
     }
-
-    const grandTotal = getGrandTotal();
 
     const options = {
       key: RAZORPAY_KEY,
@@ -173,6 +187,7 @@ export default function App() {
           items: [...cartItems],
           total,
           paymentId: response.razorpay_payment_id,
+          paymentMethod: 'online',
           form: { ...checkoutForm },
         });
         setCartItems([]);
@@ -1410,15 +1425,73 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Pay button */}
+                {/* Payment Method */}
+                <div className="bg-white/10 backdrop-blur-sm rounded-3xl border border-white/15 p-6 md:p-8">
+                  <h2 className="font-serif text-xl text-white mb-5 flex items-center gap-2">
+                    <Lock size={17} className="text-brand-gold" /> Payment Method
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Online Payment */}
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('online')}
+                      className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
+                        paymentMethod === 'online'
+                          ? 'border-brand-gold bg-brand-gold/15'
+                          : 'border-white/15 bg-white/5 hover:border-white/30'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
+                        paymentMethod === 'online' ? 'border-brand-gold' : 'border-white/30'
+                      }`}>
+                        {paymentMethod === 'online' && <div className="w-2.5 h-2.5 rounded-full bg-brand-gold" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">Pay Online</p>
+                        <p className="text-[10px] text-white/45 mt-0.5">UPI · Cards · Net Banking</p>
+                      </div>
+                    </button>
+
+                    {/* Cash on Delivery */}
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('cod')}
+                      className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left ${
+                        paymentMethod === 'cod'
+                          ? 'border-brand-gold bg-brand-gold/15'
+                          : 'border-white/15 bg-white/5 hover:border-white/30'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all ${
+                        paymentMethod === 'cod' ? 'border-brand-gold' : 'border-white/30'
+                      }`}>
+                        {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-brand-gold" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">Cash on Delivery</p>
+                        <p className="text-[10px] text-white/45 mt-0.5">Pay when you receive</p>
+                      </div>
+                    </button>
+                  </div>
+                  {paymentMethod === 'cod' && (
+                    <p className="mt-4 text-[11px] text-brand-gold/70 bg-brand-gold/10 rounded-xl px-4 py-2.5">
+                      ₹50 COD handling fee may be added by the courier at delivery.
+                    </p>
+                  )}
+                </div>
+
+                {/* Pay / Place Order button */}
                 <motion.button
                   type="submit"
                   whileHover={{ scale: 1.01, boxShadow: '0 8px 30px rgba(197,160,89,0.35)' }}
                   whileTap={{ scale: 0.98 }}
                   className="w-full bg-brand-gold text-brand-bark py-5 rounded-2xl font-bold text-base transition-all shadow-lg shadow-brand-gold/25 flex items-center justify-center gap-3"
                 >
-                  <Lock size={18} />
-                  Pay {fmtCur(getGrandTotal())}
+                  {paymentMethod === 'cod' ? (
+                    <><Package size={18} /> Place Order (COD)</>
+                  ) : (
+                    <><Lock size={18} /> Pay {fmtCur(getGrandTotal())}</>
+                  )}
                 </motion.button>
                 <p className="text-center text-[10px] text-white/30 uppercase tracking-widest flex items-center justify-center gap-2">
                   <Shield size={10} /> 100% Secure · 256-bit Encrypted
@@ -1563,8 +1636,14 @@ export default function App() {
                   </div>
 
                   <div className="border-t border-brand-leaf/8 pt-4 space-y-2">
-                    <div className="flex justify-between font-bold text-brand-bark text-base pt-2">
-                      <span>Total Paid (incl. GST)</span>
+                    <div className="flex justify-between text-sm text-brand-bark/60">
+                      <span>Payment</span>
+                      <span className="font-medium text-brand-bark">
+                        {orderDetails.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Paid Online'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between font-bold text-brand-bark text-base pt-2 border-t border-brand-leaf/8">
+                      <span>{orderDetails.paymentMethod === 'cod' ? 'Amount Due (incl. GST)' : 'Total Paid (incl. GST)'}</span>
                       <span className="text-brand-leaf text-xl">₹{orderDetails.total.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
@@ -1581,10 +1660,12 @@ export default function App() {
                       <Mail size={14} className="text-brand-gold flex-shrink-0" />
                       <p className="text-xs text-brand-bark/60">{orderDetails.form.email}</p>
                     </div>
-                    <div className="pt-2 border-t border-brand-bark/10">
-                      <p className="text-[10px] text-brand-bark/40 uppercase tracking-widest">Payment ID</p>
-                      <p className="text-xs font-mono text-brand-bark/60 mt-0.5">{orderDetails.paymentId}</p>
-                    </div>
+                    {orderDetails.paymentMethod === 'online' && (
+                      <div className="pt-2 border-t border-brand-bark/10">
+                        <p className="text-[10px] text-brand-bark/40 uppercase tracking-widest">Payment ID</p>
+                        <p className="text-xs font-mono text-brand-bark/60 mt-0.5">{orderDetails.paymentId}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
