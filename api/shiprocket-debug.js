@@ -4,7 +4,7 @@ export default async function handler(req, res) {
 
   // Show masked credentials so user can confirm they're correct
   const maskedEmail = email
-    ? email.slice(0, 3) + '***' + email.slice(email.indexOf('@'))
+    ? email.slice(0, 5) + '***' + email.slice(email.indexOf('@'))
     : 'NOT SET';
   const maskedPassword = password
     ? password.slice(0, 2) + '*'.repeat(Math.max(0, password.length - 2))
