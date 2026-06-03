@@ -69,15 +69,17 @@ export default async function handler(req, res) {
         giftwrap_charges: 0,
         transaction_charges: 0,
         total_discount: 0,
-        sub_total: order.total,
+        sub_total: Number(order.total),
 
         length: 12,
         breadth: 8,
         height: 14,
-        weight: order.items.reduce((sum, item) => {
-          const vol = parseInt(item.volume, 10) || 250;
-          return sum + (vol / 1000) * 1.15 * item.quantity;
-        }, 0).toFixed(2),
+        weight: parseFloat(
+          order.items.reduce((sum, item) => {
+            const vol = parseInt(item.volume, 10) || 250;
+            return sum + (vol / 1000) * 1.15 * item.quantity;
+          }, 0).toFixed(2)
+        ),
       }),
     });
 
