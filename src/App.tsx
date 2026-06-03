@@ -192,7 +192,7 @@ export default function App() {
     paymentId: string
   ) => {
     try {
-      await fetch('/api/create-shipment', {
+      const res = await fetch('/api/create-shipment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -210,8 +210,14 @@ export default function App() {
           },
         }),
       });
-    } catch {
-      // Shipment creation failure is non-blocking — order is already confirmed
+      const data = await res.json();
+      if (!res.ok) {
+        console.error('[Shiprocket] Failed:', data);
+      } else {
+        console.log('[Shiprocket] Shipment created:', data);
+      }
+    } catch (err) {
+      console.error('[Shiprocket] Network error:', err);
     }
   };
 
