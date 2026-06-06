@@ -1,4 +1,3 @@
-import emailjs from '@emailjs/browser';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShoppingCart, Menu, X,
@@ -16,12 +15,7 @@ declare global {
 
 const LOGO_URL = '/input_file_2.png';
 const BOTTLE_HERO_URL = 'https://i.pinimg.com/736x/17/11/fb/1711fb6ae471b1d57f73b6ab75a2c325.jpg';
-// Set VITE_RAZORPAY_KEY in your Vercel environment variables
 const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY ?? 'rzp_test_YOUR_KEY_HERE';
-
-const EMAILJS_SERVICE_ID = 'service_z3arxgv';
-const EMAILJS_TEMPLATE_ID = 'template_15kn4u7';
-const EMAILJS_PUBLIC_KEY = 'vjoDOdWgZ_1c9Mvov';
 
 const INGREDIENTS = [
   {
@@ -95,32 +89,35 @@ export default function App() {
   const [currency, setCurrency] = useState<'INR' | 'USD' | 'EUR' | 'GBP'>('INR');
   const [activeTimeline, setActiveTimeline] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [enquiryForm, setEnquiryForm] = useState({ name: '', email: '', phone: '', message: '' });
+  const [enquiryStatus, setEnquiryStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
   const sendConfirmationEmail = (
     form: CheckoutFormData,
     items: CartItem[],
     total: number,
-    paymentMethod: 'online' | 'cod',
+    method: 'online' | 'cod',
     paymentId: string
   ) => {
-    const orderItems = items
-      .map(i => `${i.name} (${i.volume}) × ${i.quantity} — ₹${(getPriceNum(i.price) * i.quantity).toLocaleString()}`)
-      .join('\n');
-
-    emailjs.send(
-      EMAILJS_SERVICE_ID,
-      EMAILJS_TEMPLATE_ID,
-      {
-        customer_name: form.name,
-        customer_email: form.email,
-        order_items: orderItems,
-        order_total: `₹${total.toLocaleString('en-IN')}`,
-        payment_method: paymentMethod === 'cod' ? 'Cash on Delivery' : `Online Payment (ID: ${paymentId})`,
-        delivery_address: `${form.address}, ${form.city} – ${form.pincode}`,
-        order_id: paymentId,
-      },
-      EMAILJS_PUBLIC_KEY
-    );
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: form.email,
+        customerName: form.name,
+        orderItems: items.map(i => ({
+          name: i.name,
+          volume: i.volume,
+          quantity: i.quantity,
+          unitPrice: getPriceNum(i.price),
+        })),
+        orderTotal: `₹${total.toLocaleString('en-IN')}`,
+        paymentMethod: method === 'cod' ? 'Cash on Delivery' : `Online Payment`,
+        deliveryAddress: `${form.address}, ${form.city} – ${form.pincode}`,
+        orderId: paymentId,
+      }),
+    }).catch(err => console.error('[Email] Failed to send confirmation:', err));
   };
 
   const navigate = (page: Page) => {
@@ -221,21 +218,22 @@ export default function App() {
     }
   };
 
-  const handleCheckoutSubmit = (e: React.FormEvent) => {
+  const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const total = getTotal();
     const grandTotal = getGrandTotal();
 
     if (paymentMethod === 'cod') {
+      const paymentId = `COD-${Date.now()}`;
       setOrderDetails({
         items: [...cartItems],
         total,
-        paymentId: 'COD',
+        paymentId,
         paymentMethod: 'cod',
         form: { ...checkoutForm },
       });
-      sendConfirmationEmail(checkoutForm, cartItems, total, 'cod', 'COD');
-      createShipment(checkoutForm, cartItems, total, 'cod', 'COD');
+      sendConfirmationEmail(checkoutForm, cartItems, total, 'cod', paymentId);
+      createShipment(checkoutForm, cartItems, total, 'cod', paymentId);
       setCartItems([]);
       navigate('thankyou');
       return;
@@ -282,6 +280,23 @@ export default function App() {
       alert(`Payment failed: ${response.error.description}. Please try again.`);
     });
     rzp.open();
+  };
+
+  const handleEnquirySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEnquiryStatus('sending');
+    try {
+      const res = await fetch('/api/send-enquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(enquiryForm),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setEnquiryStatus('sent');
+      setEnquiryForm({ name: '', email: '', phone: '', message: '' });
+    } catch {
+      setEnquiryStatus('error');
+    }
   };
 
   const products = [
@@ -1231,35 +1246,81 @@ export default function App() {
                   <h2 className="text-3xl md:text-5xl lg:text-6xl mb-4 md:mb-6 font-serif text-white leading-tight">Enquire About Our Products</h2>
                   <p className="text-white/60 text-base md:text-lg font-light leading-relaxed italic">Have questions about our herbal hair care? We're here to help.</p>
                 </div>
-                <form className="space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="space-y-2">
-                      <label className="text-[9px] uppercase tracking-widest text-brand-gold font-bold block">Full Name *</label>
-                      <input type="text" placeholder="Your name" required className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold focus:bg-white/10 transition-all" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[9px] uppercase tracking-widest text-brand-gold font-bold block">Email Address *</label>
-                      <input type="email" placeholder="your@email.com" required className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold focus:bg-white/10 transition-all" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] uppercase tracking-widest text-brand-gold font-bold block">Phone Number *</label>
-                    <input type="tel" placeholder="+91 9876543210" required className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold focus:bg-white/10 transition-all" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] uppercase tracking-widest text-brand-gold font-bold block">Your Message</label>
-                    <textarea rows={4} placeholder="Tell us about your hair concerns or questions..." className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold focus:bg-white/10 transition-all resize-none" />
-                  </div>
-                  <motion.button
-                    type="submit"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full mt-6 px-8 bg-gradient-to-r from-brand-gold to-brand-gold/80 text-brand-bark py-4 md:py-5 rounded-full text-[10px] uppercase tracking-[0.3em] font-bold hover:shadow-2xl transition-all duration-500 shadow-xl shadow-brand-gold/30"
+                {enquiryStatus === 'sent' ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center py-10"
                   >
-                    Send Enquiry
-                  </motion.button>
-                  <p className="text-center text-[8px] text-white/40 mt-3">We'll get back to you within 24 hours</p>
-                </form>
+                    <div className="w-16 h-16 rounded-full bg-white/10 border border-white/20 flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle size={32} className="text-brand-gold" strokeWidth={1.5} />
+                    </div>
+                    <h3 className="font-serif text-2xl text-white mb-2">Message Sent!</h3>
+                    <p className="text-white/55 font-light">We'll get back to you within 24 hours.</p>
+                    <button
+                      onClick={() => setEnquiryStatus('idle')}
+                      className="mt-6 text-[10px] uppercase tracking-[0.3em] text-brand-gold/70 hover:text-brand-gold transition-colors"
+                    >
+                      Send another
+                    </button>
+                  </motion.div>
+                ) : (
+                  <form onSubmit={handleEnquirySubmit} className="space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                        <label className="text-[9px] uppercase tracking-widest text-brand-gold font-bold block">Full Name *</label>
+                        <input
+                          type="text" placeholder="Your name" required
+                          value={enquiryForm.name}
+                          onChange={e => setEnquiryForm(f => ({ ...f, name: e.target.value }))}
+                          className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold focus:bg-white/10 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] uppercase tracking-widest text-brand-gold font-bold block">Email Address *</label>
+                        <input
+                          type="email" placeholder="your@email.com" required
+                          value={enquiryForm.email}
+                          onChange={e => setEnquiryForm(f => ({ ...f, email: e.target.value }))}
+                          className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold focus:bg-white/10 transition-all"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] uppercase tracking-widest text-brand-gold font-bold block">Phone Number *</label>
+                      <input
+                        type="tel" placeholder="+91 9876543210" required
+                        value={enquiryForm.phone}
+                        onChange={e => setEnquiryForm(f => ({ ...f, phone: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold focus:bg-white/10 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] uppercase tracking-widest text-brand-gold font-bold block">Your Message</label>
+                      <textarea
+                        rows={4} placeholder="Tell us about your hair concerns or questions..."
+                        value={enquiryForm.message}
+                        onChange={e => setEnquiryForm(f => ({ ...f, message: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/20 rounded-2xl px-5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold focus:bg-white/10 transition-all resize-none"
+                      />
+                    </div>
+                    {enquiryStatus === 'error' && (
+                      <p className="text-red-400 text-xs text-center">Something went wrong. Please try again or email us directly.</p>
+                    )}
+                    <motion.button
+                      type="submit"
+                      disabled={enquiryStatus === 'sending'}
+                      whileHover={enquiryStatus === 'sending' ? {} : { scale: 1.02 }}
+                      whileTap={enquiryStatus === 'sending' ? {} : { scale: 0.98 }}
+                      className="w-full mt-6 px-8 bg-gradient-to-r from-brand-gold to-brand-gold/80 text-brand-bark py-4 md:py-5 rounded-full text-[10px] uppercase tracking-[0.3em] font-bold hover:shadow-2xl transition-all duration-500 shadow-xl shadow-brand-gold/30 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {enquiryStatus === 'sending' ? (
+                        <><span className="w-3.5 h-3.5 border-2 border-brand-bark/40 border-t-brand-bark rounded-full animate-spin" /> Sending…</>
+                      ) : 'Send Enquiry'}
+                    </motion.button>
+                    <p className="text-center text-[8px] text-white/40 mt-3">We'll get back to you within 24 hours</p>
+                  </form>
+                )}
               </div>
             </div>
           </section>
