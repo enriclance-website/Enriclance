@@ -244,42 +244,83 @@ export default function App() {
       return;
     }
 
-    const options = {
-      key: RAZORPAY_KEY,
-      amount: grandTotal * 100,
-      currency: 'INR',
-      name: 'Enriclance',
-      description: 'Adivasi Herbal Hair Oil',
-      image: LOGO_URL,
-      handler: (response: { razorpay_payment_id: string }) => {
-        setOrderDetails({
-          items: [...cartItems],
-          total,
-          paymentId: response.razorpay_payment_id,
-          paymentMethod: 'online',
-          form: { ...checkoutForm },
-        });
-        sendConfirmationEmail(checkoutForm, cartItems, total, 'online', response.razorpay_payment_id);
-        createShipment(checkoutForm, cartItems, total, 'online', response.razorpay_payment_id);
-        setCartItems([]);
-        navigate('thankyou');
-      },
-      prefill: {
-        name: checkoutForm.name,
-        email: checkoutForm.email,
-        contact: checkoutForm.phone,
-      },
-      notes: {
-        address: `${checkoutForm.address}, ${checkoutForm.city} - ${checkoutForm.pincode}`,
-      },
-      theme: { color: '#2D4C3A' },
-    };
+    setIsProcessingPayment(true);
 
-    const rzp = new window.Razorpay(options);
-    rzp.on('payment.failed', (response: any) => {
-      alert(`Payment failed: ${response.error.description}. Please try again.`);
-    });
-    rzp.open();
+    try {
+      const orderRes = await fetch('/api/create-razorpay-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: grandTotal }),
+      });
+
+      if (!orderRes.ok) throw new Error('Failed to create payment order');
+      const { order_id } = await orderRes.json();
+
+      const options = {
+        key: RAZORPAY_KEY,
+        amount: grandTotal * 100,
+        currency: 'INR',
+        order_id,
+        name: 'Enriclance',
+        description: 'Adivasi Herbal Hair Oil',
+        image: LOGO_URL,
+        handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
+          const verifyRes = await fetch('/api/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+
+          const verifyData = await verifyRes.json();
+
+          if (!verifyData.verified) {
+            alert('Payment verification failed. Please contact support with your payment ID: ' + response.razorpay_payment_id);
+            setIsProcessingPayment(false);
+            return;
+          }
+
+          setOrderDetails({
+            items: [...cartItems],
+            total,
+            paymentId: response.razorpay_payment_id,
+            paymentMethod: 'online',
+            form: { ...checkoutForm },
+          });
+          sendConfirmationEmail(checkoutForm, cartItems, total, 'online', response.razorpay_payment_id);
+          createShipment(checkoutForm, cartItems, total, 'online', response.razorpay_payment_id);
+          setCartItems([]);
+          setIsProcessingPayment(false);
+          navigate('thankyou');
+        },
+        prefill: {
+          name: checkoutForm.name,
+          email: checkoutForm.email,
+          contact: checkoutForm.phone,
+        },
+        notes: {
+          address: `${checkoutForm.address}, ${checkoutForm.city} - ${checkoutForm.pincode}`,
+        },
+        theme: { color: '#2D4C3A' },
+        modal: {
+          ondismiss: () => setIsProcessingPayment(false),
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', (response: any) => {
+        alert(`Payment failed: ${response.error.description}. Please try again.`);
+        setIsProcessingPayment(false);
+      });
+      rzp.open();
+    } catch (err) {
+      console.error('[Checkout] Error:', err);
+      alert('Something went wrong. Please try again.');
+      setIsProcessingPayment(false);
+    }
   };
 
   const handleEnquirySubmit = async (e: React.FormEvent) => {
@@ -1636,11 +1677,14 @@ export default function App() {
                 {/* Pay / Place Order button */}
                 <motion.button
                   type="submit"
-                  whileHover={{ scale: 1.01, boxShadow: '0 8px 30px rgba(197,160,89,0.35)' }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full bg-brand-gold text-brand-bark py-5 rounded-2xl font-bold text-base transition-all shadow-lg shadow-brand-gold/25 flex items-center justify-center gap-3"
+                  disabled={isProcessingPayment}
+                  whileHover={isProcessingPayment ? {} : { scale: 1.01, boxShadow: '0 8px 30px rgba(197,160,89,0.35)' }}
+                  whileTap={isProcessingPayment ? {} : { scale: 0.98 }}
+                  className="w-full bg-brand-gold text-brand-bark py-5 rounded-2xl font-bold text-base transition-all shadow-lg shadow-brand-gold/25 flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {paymentMethod === 'cod' ? (
+                  {isProcessingPayment ? (
+                    <><span className="w-4 h-4 border-2 border-brand-bark/40 border-t-brand-bark rounded-full animate-spin" /> Processing…</>
+                  ) : paymentMethod === 'cod' ? (
                     <><Package size={18} /> Place Order (COD)</>
                   ) : (
                     <><Lock size={18} /> Pay {fmtCur(getGrandTotal())}</>
