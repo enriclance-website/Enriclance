@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { guardApi } from './_guard.js';
 
 function buildOrderEmailHtml({ customerName, orderItems, orderTotal, paymentMethod, deliveryAddress, orderId }) {
   const rows = orderItems.map(item => `
@@ -79,6 +80,7 @@ function buildOrderEmailHtml({ customerName, orderItems, orderTotal, paymentMeth
 }
 
 export default async function handler(req, res) {
+  if (guardApi(req, res)) return;
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

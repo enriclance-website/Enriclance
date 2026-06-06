@@ -16,6 +16,14 @@ declare global {
 const LOGO_URL = '/input_file_2.png';
 const BOTTLE_HERO_URL = 'https://i.pinimg.com/736x/17/11/fb/1711fb6ae471b1d57f73b6ab75a2c325.jpg';
 const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY ?? 'rzp_test_YOUR_KEY_HERE';
+const API_SECRET = import.meta.env.VITE_API_SECRET ?? '';
+
+const apiFetch = (url: string, body: object) =>
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-secret': API_SECRET },
+    body: JSON.stringify(body),
+  });
 
 const INGREDIENTS = [
   {
@@ -100,23 +108,19 @@ export default function App() {
     method: 'online' | 'cod',
     paymentId: string
   ) => {
-    fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: form.email,
-        customerName: form.name,
-        orderItems: items.map(i => ({
-          name: i.name,
-          volume: i.volume,
-          quantity: i.quantity,
-          unitPrice: getPriceNum(i.price),
-        })),
-        orderTotal: `₹${total.toLocaleString('en-IN')}`,
-        paymentMethod: method === 'cod' ? 'Cash on Delivery' : `Online Payment`,
-        deliveryAddress: `${form.address}, ${form.city} – ${form.pincode}`,
-        orderId: paymentId,
-      }),
+    apiFetch('/api/send-email', {
+      to: form.email,
+      customerName: form.name,
+      orderItems: items.map(i => ({
+        name: i.name,
+        volume: i.volume,
+        quantity: i.quantity,
+        unitPrice: getPriceNum(i.price),
+      })),
+      orderTotal: `₹${total.toLocaleString('en-IN')}`,
+      paymentMethod: method === 'cod' ? 'Cash on Delivery' : 'Online Payment',
+      deliveryAddress: `${form.address}, ${form.city} – ${form.pincode}`,
+      orderId: paymentId,
     }).catch(err => console.error('[Email] Failed to send confirmation:', err));
   };
 
@@ -189,23 +193,19 @@ export default function App() {
     paymentId: string
   ) => {
     try {
-      const res = await fetch('/api/create-shipment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          order: {
-            paymentId,
-            paymentMethod,
-            name: form.name,
-            email: form.email,
-            phone: form.phone,
-            address: form.address,
-            city: form.city,
-            pincode: form.pincode,
-            items,
-            total,
-          },
-        }),
+      const res = await apiFetch('/api/create-shipment', {
+        order: {
+          paymentId,
+          paymentMethod,
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          address: form.address,
+          city: form.city,
+          pincode: form.pincode,
+          items,
+          total,
+        },
       });
       const data = await res.json();
       if (!res.ok) {
@@ -247,11 +247,7 @@ export default function App() {
     setIsProcessingPayment(true);
 
     try {
-      const orderRes = await fetch('/api/create-razorpay-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: grandTotal }),
-      });
+      const orderRes = await apiFetch('/api/create-razorpay-order', { amount: grandTotal });
 
       if (!orderRes.ok) {
         const errData = await orderRes.json();
@@ -269,14 +265,10 @@ export default function App() {
         description: 'Adivasi Herbal Hair Oil',
         image: LOGO_URL,
         handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
-          const verifyRes = await fetch('/api/verify-payment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
+          const verifyRes = await apiFetch('/api/verify-payment', {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
           });
 
           const verifyData = await verifyRes.json();
@@ -331,11 +323,7 @@ export default function App() {
     e.preventDefault();
     setEnquiryStatus('sending');
     try {
-      const res = await fetch('/api/send-enquiry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(enquiryForm),
-      });
+      const res = await apiFetch('/api/send-enquiry', enquiryForm);
       if (!res.ok) throw new Error('Failed');
       setEnquiryStatus('sent');
       setEnquiryForm({ name: '', email: '', phone: '', message: '' });

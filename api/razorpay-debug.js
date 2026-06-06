@@ -1,4 +1,7 @@
+import { guardDebug } from './_guard.js';
+
 export default async function handler(req, res) {
+  if (guardDebug(req, res)) return;
   const keyId = process.env.VITE_RAZORPAY_KEY || '';
   const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
 

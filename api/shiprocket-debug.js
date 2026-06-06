@@ -1,4 +1,7 @@
+import { guardDebug } from './_guard.js';
+
 export default async function handler(req, res) {
+  if (guardDebug(req, res)) return;
   const email = process.env.SHIPROCKET_EMAIL || '';
   const password = process.env.SHIPROCKET_PASSWORD || '';
 

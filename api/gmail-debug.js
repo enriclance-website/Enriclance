@@ -1,6 +1,9 @@
 import nodemailer from 'nodemailer';
 
+import { guardDebug } from './_guard.js';
+
 export default async function handler(req, res) {
+  if (guardDebug(req, res)) return;
   const user = process.env.GMAIL_USER || '';
   const pass = process.env.GMAIL_APP_PASSWORD || '';
 
