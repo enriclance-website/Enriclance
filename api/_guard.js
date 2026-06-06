@@ -29,8 +29,17 @@ export function guardApi(req, res) {
 export function guardDebug(req, res) {
   const apiSecret = process.env.API_SECRET;
   if (!apiSecret) return false;
-  if (req.query?.key !== apiSecret) {
-    res.status(401).json({ error: 'Unauthorized — append ?key=<API_SECRET> to access this endpoint' });
+
+  // Parse query string manually — req.query may not be populated in all Vercel runtimes
+  const url = new URL(req.url, 'https://placeholder.com');
+  const providedKey = url.searchParams.get('key') || req.query?.key || '';
+
+  if (providedKey !== apiSecret) {
+    res.status(401).json({
+      error: 'Unauthorized — append ?key=<API_SECRET> to access this endpoint',
+      received_length: providedKey.length,
+      expected_length: apiSecret.length,
+    });
     return true;
   }
   return false;
