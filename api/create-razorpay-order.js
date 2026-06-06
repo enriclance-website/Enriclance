@@ -12,8 +12,16 @@ export default async function handler(req, res) {
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
   if (!keyId || !keySecret) {
-    return res.status(500).json({ error: 'Razorpay credentials not configured' });
+    return res.status(500).json({
+      error: 'Razorpay credentials not configured',
+      keyId: keyId ? `${keyId.slice(0, 12)}...` : 'NOT SET',
+      keySecret: keySecret ? 'SET' : 'NOT SET',
+    });
   }
+
+  // Warn if key modes don't match (test vs live)
+  const keyIdMode = keyId.startsWith('rzp_live_') ? 'live' : 'test';
+  console.log(`[Razorpay] key_id mode: ${keyIdMode}, amount: ₹${amount}`);
 
   const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
 

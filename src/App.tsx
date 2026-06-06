@@ -253,7 +253,11 @@ export default function App() {
         body: JSON.stringify({ amount: grandTotal }),
       });
 
-      if (!orderRes.ok) throw new Error('Failed to create payment order');
+      if (!orderRes.ok) {
+        const errData = await orderRes.json();
+        console.error('[Razorpay] Order creation error:', errData);
+        throw new Error(errData.detail?.description || errData.error || 'Failed to create payment order');
+      }
       const { order_id } = await orderRes.json();
 
       const options = {
